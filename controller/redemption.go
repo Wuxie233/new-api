@@ -58,6 +58,24 @@ func GetRedemption(c *gin.Context) {
 	return
 }
 
+func GetRedemptionByKey(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		common.ApiErrorMsg(c, "key is required")
+		return
+	}
+	redemption, err := model.GetRedemptionByKey(key)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    redemption,
+	})
+}
+
 func AddRedemption(c *gin.Context) {
 	redemption := model.Redemption{}
 	err := c.ShouldBindJSON(&redemption)
