@@ -207,6 +207,83 @@ func DeleteRedemptionById(id int) (err error) {
 	return redemption.Delete()
 }
 
+type RefundResult struct {
+	RedemptionId    int     `json:"redemption_id"`
+	RedemptionKey   string  `json:"redemption_key"`
+	UserId          int     `json:"user_id"`
+	OriginalQuota   int     `json:"original_quota"`
+	UserRemainQuota int     `json:"user_remain_quota"`
+	UserUsedQuota   int     `json:"user_used_quota"`
+	RefundableQuota int     `json:"refundable_quota"`
+	UsedPercentage  float64 `json:"used_percentage"`
+}
+
+func CalculateRedemptionRefund(key string) (*RefundResult, error) {
+	redemption, err := GetRedemptionByKey(key)
+	if err != nil {
+		return nil, errors.New("兑换码不存在")
+	}
+	if redemption.Status != common.RedemptionCodeStatusUsed {
+		return nil, errors.New("该兑换码未被使用，无需退款")
+	}
+	if redemption.UsedUserId == 0 {
+		return nil, errors.New("无法确定使用者")
+	}
+	user, err := GetUserById(redemption.UsedUserId, false)
+	if err != nil {
+		return nil, errors.New("使用者用户不存在")
+	}
+	refundable := redemption.Quota
+	if user.Quota < refundable {
+		refundable = user.Quota
+	}
+	if refundable < 0 {
+		refundable = 0
+	}
+	usedPct := float64(0)
+	if redemption.Quota > 0 {
+		usedPct = float64(redemption.Quota-refundable) / float64(redemption.Quota) * 100
+	}
+	return &RefundResult{
+		RedemptionId:    redemption.Id,
+		RedemptionKey:   key,
+		UserId:          redemption.UsedUserId,
+		OriginalQuota:   redemption.Quota,
+		UserRemainQuota: user.Quota,
+		UserUsedQuota:   user.UsedQuota,
+		RefundableQuota: refundable,
+		UsedPercentage:  usedPct,
+	}, nil
+}
+
+func ExecuteRedemptionRefund(key string) (*RefundResult, error) {
+	result, err := CalculateRedemptionRefund(key)
+	if err != nil {
+		return nil, err
+	}
+	if result.RefundableQuota <= 0 {
+		return nil, errors.New("无可退额度")
+	}
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(&User{}).Where("id = ?", result.UserId).Update("quota", gorm.Expr("quota - ?", result.RefundableQuota)).Error
+		if err != nil {
+			return err
+		}
+		keyCol := "`key`"
+		if common.UsingPostgreSQL {
+			keyCol = `"key"`
+		}
+		err = tx.Model(&Redemption{}).Where(keyCol+" = ?", key).Update("status", common.RedemptionCodeStatusDisabled).Error
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	RecordLog(result.UserId, LogTypeRefund, fmt.Sprintf("兑换码退款：扣除额度 %s，兑换码ID %d，已使用 %.1f%%",
+		logger.LogQuota(result.RefundableQuota), result.RedemptionId, result.UsedPercentage))
+	return result, nil
+}
+
 func DeleteInvalidRedemptions() (int64, error) {
 	now := common.GetTimestamp()
 	result := DB.Where("status IN ? OR (status = ? AND expired_time != 0 AND expired_time < ?)", []int{common.RedemptionCodeStatusUsed, common.RedemptionCodeStatusDisabled}, common.RedemptionCodeStatusEnabled, now).Delete(&Redemption{})

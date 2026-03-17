@@ -76,6 +76,46 @@ func GetRedemptionByKey(c *gin.Context) {
 	})
 }
 
+func PreviewRedemptionRefund(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		common.ApiErrorMsg(c, "key is required")
+		return
+	}
+	result, err := model.CalculateRedemptionRefund(key)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    result,
+	})
+}
+
+type refundRequest struct {
+	Key string `json:"key" binding:"required"`
+}
+
+func ExecuteRedemptionRefund(c *gin.Context) {
+	req := refundRequest{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "key is required")
+		return
+	}
+	result, err := model.ExecuteRedemptionRefund(req.Key)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "退款成功",
+		"data":    result,
+	})
+}
+
 func AddRedemption(c *gin.Context) {
 	redemption := model.Redemption{}
 	err := c.ShouldBindJSON(&redemption)
