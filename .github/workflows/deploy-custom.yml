@@ -72,6 +72,7 @@ jobs:
       - name: Deploy
         run: |
           ssh -i $SSH_KEY_PATH -p ${{ secrets.DEPLOY_PORT }} $SSH_OPTS root@${{ secrets.DEPLOY_HOST }} bash -s <<'DEPLOY'
+          echo '${{ secrets.ACR_PASSWORD }}' | docker login ${{ env.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
           cd /opt/new-api
           docker pull crpi-1ywyrjk94j4tugmb.cn-shanghai.personal.cr.aliyuncs.com/wuxie233/new-api:latest
           docker compose down
