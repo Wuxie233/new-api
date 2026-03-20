@@ -39,6 +39,7 @@ import {
   renderQuota,
   getModelCategories,
   showError,
+  stringToColor,
 } from '../../../helpers';
 import {
   IconTreeTriangleDown,
@@ -88,7 +89,7 @@ const renderStatus = (text, record, t) => {
 };
 
 // Render group column
-const renderGroupColumn = (text, record, t) => {
+const renderGroupColumn = (text, record, t, groupInfo) => {
   if (text === 'auto') {
     return (
       <Tooltip
@@ -104,7 +105,37 @@ const renderGroupColumn = (text, record, t) => {
       </Tooltip>
     );
   }
-  return renderGroup(text);
+  if (!text) return renderGroup(text);
+  const groups = text.split(',').sort();
+  const tagColors = { vip: 'yellow', pro: 'yellow', svip: 'red', premium: 'red' };
+  return (
+    <span>
+      {groups.map((g) => {
+        const info = groupInfo?.[g];
+        const tag = (
+          <Tag color={tagColors[g] || stringToColor(g)} key={g} shape='circle'>
+            {g}
+          </Tag>
+        );
+        if (!info) return tag;
+        const ratio = info.ratio === undefined ? '' : info.ratio === 'auto' ? t('自动') : `${info.ratio}x`;
+        return (
+          <Tooltip
+            key={g}
+            position='top'
+            content={
+              <div style={{ maxWidth: 240 }}>
+                {ratio && <div>{t('倍率')}: {ratio}</div>}
+                {info.desc && <div>{info.desc}</div>}
+              </div>
+            }
+          >
+            {tag}
+          </Tooltip>
+        );
+      })}
+    </span>
+  );
 };
 
 // Render token key column with show/hide and copy functionality
@@ -449,6 +480,7 @@ export const getTokensColumns = ({
   setEditingToken,
   setShowEdit,
   refresh,
+  groupInfo,
 }) => {
   return [
     {
@@ -470,7 +502,7 @@ export const getTokensColumns = ({
       title: t('分组'),
       dataIndex: 'group',
       key: 'group',
-      render: (text, record) => renderGroupColumn(text, record, t),
+      render: (text, record) => renderGroupColumn(text, record, t, groupInfo),
     },
     {
       title: t('密钥'),

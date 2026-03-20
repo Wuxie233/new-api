@@ -59,6 +59,9 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
   const [loadingTokenKeys, setLoadingTokenKeys] = useState({});
   const keyRequestsRef = useRef({});
 
+  // Group info state
+  const [groupInfo, setGroupInfo] = useState({});
+
   // Form state
   const [formApi, setFormApi] = useState(null);
   const formInitValues = {
@@ -422,6 +425,14 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
       .catch((reason) => {
         showError(reason);
       });
+    // Load group info for tooltip display
+    API.get('/api/user/self/groups')
+      .then((res) => {
+        if (res.data.success) {
+          setGroupInfo(res.data.data);
+        }
+      })
+      .catch(() => {});
   }, [pageSize]);
 
   return {
@@ -451,6 +462,7 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
     setShowKeys,
     resolvedTokenKeys,
     loadingTokenKeys,
+    groupInfo,
 
     // Form state
     formApi,
