@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { Toast, Pagination } from '@douyinfe/semi-ui';
-import { toastConstants } from '../constants';
+import { toastConstants, getErrorMessage } from '../constants';
 import React from 'react';
 import { toast } from 'react-toastify';
 import {
@@ -123,6 +123,15 @@ export function showError(error) {
   console.error(error);
   if (error.message) {
     if (error.name === 'AxiosError') {
+      // 尝试从 OpenAI 兼容格式提取 error code 并映射
+      const respData = error.response?.data;
+      if (respData?.error?.code) {
+        const mapped = getErrorMessage(respData.error.code);
+        if (mapped) {
+          Toast.error(mapped);
+          return;
+        }
+      }
       switch (error.response.status) {
         case 401:
           // 清除用户状态
